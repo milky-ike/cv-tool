@@ -1,159 +1,188 @@
-# cv.py
+#cv.py
 
-import os
 import cv2
+import tempfile
+import shutil
+import os
 import numpy as np
-from loguru import logger
-from typing import Dict
-from utils.__env import *
-from utils.file import create_output_directory
+from datetime import datetime
+from typing import List, Callable, Union
 
-"""
-Crop the input frame
-"""
-def set_cropped(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
-        s_x, s_y, e_x, e_y = settings.get("coordinates")
-        if 0 <= s_x < e_x <= frame.shape[1] and 0 <= s_y < e_y <= frame.shape[0]:
-            frame = frame[s_y:e_y, s_x:e_x].copy()
-        else:
-            logger.warning(f"Invalid coordinates for cropping in {input_file}. Skipping cropping.")
-    return frame
+class ImageManager:
+    def __init__(self) -> None:
+        self.temp_file_path: Union[str, None] = None
 
-"""
-Resize the input frame
-"""
-def set_resize(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
-        frame_resize = settings.get("output_size", frame.shape[:2][::-1])
-        if frame_resize[0] > 0 and frame_resize[1] > 0:
-            frame = cv2.resize(frame, tuple(frame_resize))
-        else:
-            logger.warning(f"Invalid resize dimensions for {input_file}. Skipping resizing.")
-    return frame
+    """
+    Creates a temporary file
+    """
+    def _save_temp_image(self, image: np.ndarray) -> None:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
+            self.temp_file_path = temp_file.name
+            cv2.imwrite(self.temp_file_path, image)
+        print(f"Temporary image saved to: {self.temp_file_path}")
 
-"""
-Adjust brightness of the input frame
-"""
-def set_brightness(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
+    """
+    Crop the input frame
+    """
+    def set_cropped(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: List[int], 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
+        s_x, s_y, e_x, e_y = settings
+        if not (0 <= s_x < e_x <= frame.shape[1] and 0 <= s_y < e_y <= frame.shape[0]):
+            print(f"Invalid coordinates for cropping in {input_file}. Skipping cropping.")
+            return
+
+        cropped_frame = frame[s_y:e_y, s_x:e_x].copy()
+        self._save_temp_image(cropped_frame)
+        load_image_callback(self.temp_file_path)
+
+    """
+    Resize the input frame
+    """
+    def set_resize(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: List[int], 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
+        width, height = settings
+        if width <= 0 or height <= 0:
+            print(f"Invalid resize dimensions for {input_file}. Skipping resizing.")
+            return
+
+        resized_frame = cv2.resize(frame, (width, height))
+        self._save_temp_image(resized_frame)
+        load_image_callback(self.temp_file_path)
+
+    """
+    Adjust brightness of the input frame
+    """
+    def set_brightness(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: List[float], 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
         frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        factor = settings.get("factor") if settings.get("enabled", True) else 1.0
+        factor = settings
         frame_hsv[:, :, 2] = np.clip(frame_hsv[:, :, 2] * factor, 0, 255)
         frame = cv2.cvtColor(frame_hsv, cv2.COLOR_HSV2BGR)
-    return frame
 
-"""
-Adjust saturation of the input frame
-"""
-def set_saturation(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
+        self._save_temp_image(frame)
+        load_image_callback(self.temp_file_path)
+
+    """
+    Adjust saturation of the input frame
+    """
+    def set_saturation(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: List[float], 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
         frame_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        factor = settings.get("factor") if settings.get("enabled", True) else 1.0
+        factor = settings
         frame_hsv[:, :, 1] = np.clip(frame_hsv[:, :, 1] * factor, 0, 255)
         frame = cv2.cvtColor(frame_hsv, cv2.COLOR_HSV2BGR)
-    return frame
 
-"""
-Rotate the input frame by 90 degrees
-"""
-def set_rotate_90(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
-        angle = settings.get("angle")
+        self._save_temp_image(frame)
+        load_image_callback(self.temp_file_path)
+
+    """
+    Rotate the input frame by 90 degrees
+    """
+    def set_rotate_90(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: int, 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
+        angle = settings
         if 0 < angle < 4:
             frame = np.rot90(frame, angle)
         else:
-            logger.warning(f"Invalid dimensions for rotation in {input_file}. Skipping rotation.")
-    return frame
+            print(f"Invalid dimensions for rotation in {input_file}. Skipping rotation.")
 
-"""
-Flip the input frame
-"""
-def set_flip(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    if settings.get("enabled", True):
-        option = settings.get("options")
+        self._save_temp_image(frame)
+        load_image_callback(self.temp_file_path)
+
+    """
+    Flip the input frame
+    """
+    def set_flip(
+        self, 
+        supported_files: List[str], 
+        current_index: int, 
+        settings: str, 
+        load_image_callback: Callable[[str], None]
+    ) -> None:
+        input_file = supported_files[current_index]
+        frame = cv2.imread(input_file)
+
+        option = settings
         if option in {'vertically', 'horizontally'}:
             frame = np.flipud(frame) if option == 'vertically' else np.fliplr(frame)
         else:
-            logger.warning(f"Invalid flip option in {input_file}. Skipping flip.")
-    return frame
+            print(f"Invalid flip option in {input_file}. Skipping flip.")
 
-"""
-Preprocess an image frame
-"""
-def image_process(input_file: str, output_folder: str, settings: Dict) -> None:
-    frame = cv2.imread(input_file, cv2.IMREAD_UNCHANGED)
-    processed_frame = process_frame(frame, input_file, settings)
-    output_path = os.path.join(output_folder, os.path.basename(input_file))
-    cv2.imwrite(output_path, processed_frame)
-
-"""
-Preprocess a video file
-"""
-def video_process(input_file: str, output_folder: str, settings: Dict) -> None:
-    try:
-        preview = settings.get("preview")
-        save_video = settings.get("save_video")
-        save_image = settings.get("save_image")
-
-        cap = cv2.VideoCapture(input_file)
-        if not cap.isOpened():
-            logger.error(f"Unable to open the video file: {input_file}")
+        self._save_temp_image(frame)
+        load_image_callback(self.temp_file_path)
+    
+    """
+    Process and save the image
+    """
+    def save_image(
+        self, 
+        supported_files: List[str], 
+        current_index: int
+    ) -> None:
+        if not supported_files:
+            print("No images to process.")
             return
 
-        if save_video:
-            output_directory = os.path.abspath(os.path.join(output_folder, os.path.splitext(os.path.basename(input_file))[0]))
-            create_output_directory(output_directory)
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-            dummy_h, dummy_w, dummy_ch = process_frame(np.zeros((int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), 3), dtype=np.uint8), '', settings).shape
-            out = cv2.VideoWriter(os.path.join(output_directory, os.path.basename(input_file)), fourcc, cap.get(cv2.CAP_PROP_FPS), (dummy_w, dummy_h))
-        if save_image:
-            output_directory_img = os.path.abspath(os.path.join(output_folder, os.path.splitext(os.path.basename(input_file))[0], "img"))
-            create_output_directory(output_directory_img)
+        if current_index >= len(supported_files):
+            print("Invalid current index. Cannot find the image.")
+            return
 
-        frame_count = 0
+        if self.temp_file_path is None:
+            print("No processed image available to save.")
+            return
 
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            frame = process_frame(frame, input_file, settings)
+        current_image_path = supported_files[current_index]
+        destination_path = (
+            os.path.splitext(current_image_path)[0]
+            + '_'
+            + datetime.now().strftime("%Y%m%d_%H%M%S")
+            + os.path.splitext(current_image_path)[1]
+        )
 
-            if preview:
-                cv2.imshow(f'Preview - {os.path.basename(input_file)}', frame)
-                cv2.waitKey(1)
-            if save_video:
-                out.write(frame)
-            if save_image:
-                save_path = os.path.join(output_directory_img, f"frame_{frame_count}.png")
-                cv2.imwrite(save_path, frame)
-            frame_count += 1
+        try:
+            shutil.copyfile(self.temp_file_path, destination_path)
+            print(f"Image successfully saved as: {destination_path}")
+        except Exception as e:
+            print(f"Error occurred while saving the image: {e}")
 
-        if preview:
-            cv2.destroyAllWindows()
-        if save_video:
-            out.release()
-        cap.release()
-    except Exception as e:
-        logger.error(f"Error occurred during video preprocessing: {e}")
-        sys.exit(1)
-
-"""
-Process an image frame based on provided settings
-"""
-def process_frame(frame: np.ndarray, input_file: str, settings: Dict) -> np.ndarray:
-    cropped_settings = settings.get("cropped", {})
-    resize_settings = settings.get("resize", {})
-    brightness_settings = settings.get("brightness", {})
-    saturation_settings = settings.get("saturation", {})
-    rotate_settings = settings.get("rotate", {})
-    flip_settings = settings.get("flip", {})
-
-    frame = set_cropped(frame, input_file, cropped_settings)
-    frame = set_resize(frame, input_file, resize_settings)
-    frame = set_brightness(frame, input_file, brightness_settings)
-    frame = set_saturation(frame, input_file, saturation_settings)
-    frame = set_rotate_90(frame, input_file, rotate_settings)
-    frame = set_flip(frame, input_file, flip_settings)
-
-    return frame
+image_manager = ImageManager()

@@ -1,9 +1,10 @@
 # .env
 
-# Define valid input types for data classification
-VALID_IMAGE_TYPES = "i image"
-VALID_VIDEO_TYPES = "v video"
+# Define window size
+WINDOW_SIZE = [1336, 768]
 
-# Define valid file extensions for images and videos
-IMAGE_EXT=".jpg .jpeg .webp .bmp .png"
-VIDEO_EXT=".mp4 .avi .mov .mkv .wmv"
+# Define valid file extensions for images
+IMAGE_EXT="*.jpg *.jpeg *.webp *.bmp *.png"
+
+# Save directory
+SAVE_DIR="/Users/users/downloads"
