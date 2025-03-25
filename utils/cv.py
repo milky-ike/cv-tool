@@ -10,20 +10,23 @@ from typing import List, Callable, Union
 
 class ImageManager:
     def __init__(self) -> None:
+        """
+        Initializes the ImageManager with a temporary file path for saving processed images.
+        """
         self.temp_file_path: Union[str, None] = None
 
-    """
-    Creates a temporary file
-    """
     def _save_temp_image(self, image: np.ndarray) -> None:
+        """
+        Saves the given image to a temporary file and stores the file path.
+        
+        Parameters:
+        - image (np.ndarray): The image to save.
+        """
         with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
             self.temp_file_path = temp_file.name
             cv2.imwrite(self.temp_file_path, image)
         print(f"Temporary image saved to: {self.temp_file_path}")
 
-    """
-    Crop the input frame
-    """
     def set_cropped(
         self, 
         supported_files: List[str], 
@@ -31,6 +34,15 @@ class ImageManager:
         settings: List[int], 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Crops the image based on the specified coordinates.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (List[int]): Coordinates for cropping (start_x, start_y, end_x, end_y).
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
@@ -43,9 +55,6 @@ class ImageManager:
         self._save_temp_image(cropped_frame)
         load_image_callback(self.temp_file_path)
 
-    """
-    Resize the input frame
-    """
     def set_resize(
         self, 
         supported_files: List[str], 
@@ -53,6 +62,15 @@ class ImageManager:
         settings: List[int], 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Resizes the image to the specified width and height.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (List[int]): New width and height for resizing.
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
@@ -65,9 +83,6 @@ class ImageManager:
         self._save_temp_image(resized_frame)
         load_image_callback(self.temp_file_path)
 
-    """
-    Adjust brightness of the input frame
-    """
     def set_brightness(
         self, 
         supported_files: List[str], 
@@ -75,6 +90,15 @@ class ImageManager:
         settings: List[float], 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Adjusts the brightness of the image using the specified factor.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (List[float]): Brightness adjustment factor.
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
@@ -86,9 +110,6 @@ class ImageManager:
         self._save_temp_image(frame)
         load_image_callback(self.temp_file_path)
 
-    """
-    Adjust saturation of the input frame
-    """
     def set_saturation(
         self, 
         supported_files: List[str], 
@@ -96,6 +117,15 @@ class ImageManager:
         settings: List[float], 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Adjusts the saturation of the image using the specified factor.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (List[float]): Saturation adjustment factor.
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
@@ -107,9 +137,6 @@ class ImageManager:
         self._save_temp_image(frame)
         load_image_callback(self.temp_file_path)
 
-    """
-    Rotate the input frame by 90 degrees
-    """
     def set_rotate_90(
         self, 
         supported_files: List[str], 
@@ -117,6 +144,15 @@ class ImageManager:
         settings: int, 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Rotates the image by 90 degrees, the number of times specified by settings.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (int): Number of 90-degree rotations (1, 2, 3).
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
@@ -129,9 +165,6 @@ class ImageManager:
         self._save_temp_image(frame)
         load_image_callback(self.temp_file_path)
 
-    """
-    Flip the input frame
-    """
     def set_flip(
         self, 
         supported_files: List[str], 
@@ -139,26 +172,41 @@ class ImageManager:
         settings: str, 
         load_image_callback: Callable[[str], None]
     ) -> None:
+        """
+        Flips the image either vertically or horizontally.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        - settings (str): The flip direction ('vertically' or 'horizontally').
+        - load_image_callback (Callable[[str], None]): Callback to load the processed image.
+        """
         input_file = supported_files[current_index]
         frame = cv2.imread(input_file)
 
-        option = settings
-        if option in {'vertically', 'horizontally'}:
-            frame = np.flipud(frame) if option == 'vertically' else np.fliplr(frame)
+        if settings == 'vertically':
+            frame = np.flipud(frame)
+        elif settings == 'horizontally':
+            frame = np.fliplr(frame)
         else:
             print(f"Invalid flip option in {input_file}. Skipping flip.")
+            return
 
         self._save_temp_image(frame)
         load_image_callback(self.temp_file_path)
     
-    """
-    Process and save the image
-    """
     def save_image(
         self, 
         supported_files: List[str], 
         current_index: int
     ) -> None:
+        """
+        Saves the processed image to the file system.
+        
+        Parameters:
+        - supported_files (List[str]): List of image files to process.
+        - current_index (int): Index of the current image in the list.
+        """
         if not supported_files:
             print("No images to process.")
             return
